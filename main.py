@@ -10,6 +10,21 @@ def get_path():
     path = project_root /"datas_of_JobSort" / "mails" / "Takeout" / "Mail" / "applications.mbox"
     return path, project_root
 
+def save_to_csv(mails, path):
+    with open(path, "w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=[
+                "Date",
+                "Expéditeur",
+                "Sujet"
+            ],
+            delimiter=";"
+        )
+
+        writer.writeheader()
+        writer.writerows(mails)
+
 def save_matches_to_csv(correspondances, path):
     with open(path, "w", newline="", encoding="utf-8-sig") as file:
         writer = csv.DictWriter(
@@ -33,6 +48,7 @@ def load_tracking_csv(path):
 
 def compare_applications(mails, applications):
     correspondances = []
+    deja_vus = set()
 
     for application in applications:
         entreprise = application["Entreprise"]
@@ -43,14 +59,35 @@ def compare_applications(mails, applications):
             ).lower()
 
             if entreprise.lower() in texte_mail:
-                correspondances.append({
-                    "Entreprise": entreprise,
-                    "Date": mail["Date"],
-                    "Expéditeur": mail["Expéditeur"],
-                    "Sujet": mail["Sujet"]
-                })
+
+                sujet_normalise = normalize_subject(mail["Sujet"])
+
+                cle = (
+                    entreprise.lower().strip(),
+                    mail["Date"],
+                    mail["Expéditeur"].lower().strip(),
+                    sujet_normalise
+                )
+
+                if cle not in deja_vus:
+                    correspondances.append({
+                        "Entreprise": entreprise,
+                        "Date": mail["Date"],
+                        "Expéditeur": mail["Expéditeur"],
+                        "Sujet": mail["Sujet"]
+                    })
+                    deja_vus.add(cle)
+
 
     return correspondances
+
+def normalize_subject(subject):
+    subject = subject.lower().strip()
+
+    while subject.startswith("re:"):
+        subject = subject[3:].strip()
+
+    return subject
 
 def load_mails(path):
     mbox = mailbox.mbox(path, create=False)
@@ -75,6 +112,9 @@ def load_mails(path):
         "offres à pourvoir",
         "postes vacants",
         "Suggestions d'offres d'emploi",
+        "SUGGESTION D'OFFRES D'EMPLOI",
+        "NOUVELLES OFFRES D'EMPLOI",
+        "PLUS D'EMPLOIS",
         "Nouvelles offres d'emploi",
         "Plus d'emplois",
         "votre profil correspond peut-être",
@@ -166,7 +206,7 @@ mbox_path, project_root = get_path()
 
 mails = load_mails(mbox_path)
 
-save_matches_to_csv(
+save_to_csv(
     mails,
     "applications.csv"
 )
@@ -175,9 +215,9 @@ tracking_path = project_root / "datas_of_JobSort" / "Recherche d'alternance - Fe
 
 applications = load_tracking_csv(tracking_path)
 
-correspondances = compare_applications(mails, applications)
+correspondance = compare_applications(mails, applications)
 
 save_matches_to_csv(
-    correspondances,
+    correspondance,
     "correspondances.csv"
 )
