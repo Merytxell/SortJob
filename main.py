@@ -8,13 +8,14 @@ import csv
 def get_path():
     project_root = Path(__file__).parent.parent
     path = project_root /"datas_of_JobSort" / "mails" / "Takeout" / "Mail" / "applications.mbox"
-    return path
+    return path, project_root
 
-def save_to_csv(mails, path):
+def save_matches_to_csv(correspondances, path):
     with open(path, "w", newline="", encoding="utf-8-sig") as file:
         writer = csv.DictWriter(
             file,
             fieldnames=[
+                "Entreprise",
                 "Date",
                 "Expéditeur",
                 "Sujet"
@@ -23,7 +24,33 @@ def save_to_csv(mails, path):
         )
 
         writer.writeheader()
-        writer.writerows(mails)
+        writer.writerows(correspondances)
+
+def load_tracking_csv(path):
+    with open(path, "r", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        return list(reader)
+
+def compare_applications(mails, applications):
+    correspondances = []
+
+    for application in applications:
+        entreprise = application["Entreprise"]
+
+        for mail in mails:
+            texte_mail = (
+                mail["Expéditeur"] + " " + mail["Sujet"]
+            ).lower()
+
+            if entreprise.lower() in texte_mail:
+                correspondances.append({
+                    "Entreprise": entreprise,
+                    "Date": mail["Date"],
+                    "Expéditeur": mail["Expéditeur"],
+                    "Sujet": mail["Sujet"]
+                })
+
+    return correspondances
 
 def load_mails(path):
     mbox = mailbox.mbox(path, create=False)
@@ -134,14 +161,23 @@ def load_mails(path):
             })
     return mails
 
-path = get_path()
-print(path)
-print(path.exists())
 
-load_mails(path)
-mails = load_mails(get_path())
+mbox_path, project_root = get_path()
 
-save_to_csv(
+mails = load_mails(mbox_path)
+
+save_matches_to_csv(
     mails,
     "applications.csv"
+)
+
+tracking_path = project_root / "datas_of_JobSort" / "Recherche d'alternance - Feuille 1.csv"
+
+applications = load_tracking_csv(tracking_path)
+
+correspondances = compare_applications(mails, applications)
+
+save_matches_to_csv(
+    correspondances,
+    "correspondances.csv"
 )
