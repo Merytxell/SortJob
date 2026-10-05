@@ -3,14 +3,31 @@ import mailbox
 from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
 from datetime import datetime
+import csv
 
 def get_path():
     project_root = Path(__file__).parent.parent
     path = project_root /"datas_of_JobSort" / "mails" / "Takeout" / "Mail" / "applications.mbox"
     return path
 
+def save_to_csv(mails, path):
+    with open(path, "w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=[
+                "Date",
+                "Expéditeur",
+                "Sujet"
+            ],
+            delimiter=";"
+        )
+
+        writer.writeheader()
+        writer.writerows(mails)
+
 def load_mails(path):
     mbox = mailbox.mbox(path, create=False)
+    mails = []
 
     keywords = [
         "candidature",
@@ -109,14 +126,22 @@ def load_mails(path):
             if any(keyword in subject_lower for keyword in excluded_keywords):
                 continue
 
-            print("Date :", date_mail)
-            print("Expéditeur :", sender)
-            print("Sujet :", subject)
-            print("-" * 50)
 
+            mails.append({
+                "Date": date_mail,
+                "Expéditeur": sender,
+                "Sujet": subject
+            })
+    return mails
 
 path = get_path()
 print(path)
 print(path.exists())
 
 load_mails(path)
+mails = load_mails(get_path())
+
+save_to_csv(
+    mails,
+    "applications.csv"
+)
